@@ -108,12 +108,12 @@ class WildcardPattern(object):
 
 
 def is_case_insensitive(directory):
-    # Write a mixed-case temporary file, then look for it under other casing.
+    # In a fresh, empty directory inside the target, create two files whose
+    # names differ only by case. If only one survives, the filesystem is
+    # case-insensitive (or at least collides the way we care about).
     os.makedirs(directory, exist_ok=True)
-    fd, path = tempfile.mkstemp(prefix="WaybackPack-Case-", dir=directory)
-    os.close(fd)
-    try:
-        head, tail = os.path.split(path)
-        return os.path.exists(os.path.join(head, tail.swapcase()))
-    finally:
-        os.remove(path)
+    with tempfile.TemporaryDirectory(dir=directory) as probe:
+        for name in ("WaybackPack", "wAYBACKpACK"):
+            with open(os.path.join(probe, name), "wb"):
+                pass
+        return len(os.listdir(probe)) == 1
