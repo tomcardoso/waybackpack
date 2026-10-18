@@ -33,6 +33,12 @@ def parse_args():
     )
 
     parser.add_argument(
+        "--wildcard",
+        action="store_true",
+        help="Treat the URL as a wildcard pattern, and download every archived URL that matches it. '*' matches within a path segment, '**' matches across segments, '?' matches one character, and '[abc]' matches any listed character. E.g., 'example.com/**/*.html' matches every archived .html page on example.com. Quote the URL so that your shell doesn't expand it. Caution: URL paths are usually case-sensitive, but MacOS and Windows filesystems usually aren't, so URLs that differ only in capitalization can collide. If the target directory is case-insensitive, waybackpack warns you and skips (rather than overwrites) colliding files.",
+    )
+
+    parser.add_argument(
         "--raw",
         action="store_true",
         help="Fetch file in its original state, without any processing by the Wayback Machine or waybackpack.",
@@ -146,11 +152,10 @@ def main():
         to_date=args.to_date,
         uniques_only=args.uniques_only,
         collapse=args.collapse,
+        wildcard=args.wildcard,
     )
 
-    timestamps = [snap["timestamp"] for snap in snapshots]
-
-    pack = Pack(args.url, timestamps=timestamps, session=session)
+    pack = Pack(args.url, snapshots=snapshots, session=session, wildcard=args.wildcard)
 
     if args.dir:
         pack.download_to(

@@ -34,6 +34,16 @@ Or, just to print the URLs of all archived snapshots:
 waybackpack http://www.dol.gov/ --list
 ```
 
+To download every archived `.html` page on a site, use `--wildcard` (and quote the URL, so your shell doesn't expand it):
+
+```sh
+waybackpack "http://example.com/**/*.html" -d ~/Downloads/example-wayback --wildcard --from-date 2005 --to-date 2008 --delay 1 --no-clobber
+```
+
+In a pattern, `*` matches within a single path segment, `**` matches across segments, `?` matches one character, and `[abc]` matches any of the listed characters. Each snapshot is saved under its own timestamp, host, and path, e.g., `20050101000000/example.com/some/page.html`.
+
+Caution: Paths on a web server are usually case-sensitive, but the default filesystems on MacOS and Windows are not, so `PATH/TO/file.txt` and `path/to/FILE.txt` can collide there. If `--wildcard` finds that the target directory is case-insensitive, it will log a warning and skip (rather than overwrite) any colliding files.
+
 ## Installation
 
 ```
@@ -43,8 +53,8 @@ pip install waybackpack
 ## Usage
 
 ```
-usage: waybackpack [-h] [--version] (-d DIR | --list) [--raw] [--root ROOT]
-                   [--from-date FROM_DATE] [--to-date TO_DATE]
+usage: waybackpack [-h] [--version] (-d DIR | --list) [--wildcard] [--raw]
+                   [--root ROOT] [--from-date FROM_DATE] [--to-date TO_DATE]
                    [--user-agent USER_AGENT] [--follow-redirects]
                    [--uniques-only] [--collapse COLLAPSE] [--ignore-errors]
                    [--max-retries MAX_RETRIES] [--no-clobber] [--quiet]
@@ -61,6 +71,18 @@ options:
                         directory if it doesn't already exist.
   --list                Instead of downloading the files, only print the list
                         of snapshots.
+  --wildcard            Treat the URL as a wildcard pattern, and download
+                        every archived URL that matches it. '*' matches within
+                        a path segment, '**' matches across segments, '?'
+                        matches one character, and '[abc]' matches any listed
+                        character. E.g., 'example.com/**/*.html' matches every
+                        archived .html page on example.com. Quote the URL so
+                        that your shell doesn't expand it. Caution: URL paths
+                        are usually case-sensitive, but MacOS and Windows
+                        filesystems usually aren't, so URLs that differ only
+                        in capitalization can collide. If the target directory
+                        is case-insensitive, waybackpack warns you and skips
+                        (rather than overwrites) colliding files.
   --raw                 Fetch file in its original state, without any
                         processing by the Wayback Machine or waybackpack.
   --root ROOT           The root URL from which to serve snapshotted

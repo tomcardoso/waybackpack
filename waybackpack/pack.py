@@ -7,6 +7,7 @@ from .asset import Asset
 from .cdx import search
 from .session import Session
 from .settings import DEFAULT_ROOT
+from .wildcard import is_case_insensitive
 
 logger = logging.getLogger(__name__)
 
@@ -42,24 +43,47 @@ def replace_invalid_chars(path, fallback_char="_"):
 
 
 class Pack(object):
-    def __init__(self, url, timestamps=None, uniques_only=False, session=None):
+    def __init__(
+        self,
+        url,
+        timestamps=None,
+        uniques_only=False,
+        session=None,
+        snapshots=None,
+        wildcard=False,
+    ):
 
         self.url = url
+        self.wildcard = wildcard
         prefix = "http://" if urlparse(url).scheme == "" else ""
         self.full_url = prefix + url
         self.parsed_url = urlparse(self.full_url)
 
         self.session = session or Session()
 
-        if timestamps is None:
-            self.timestamps = [
-                snap["timestamp"]
-                for snap in search(url, uniques_only=uniques_only, session=self.session)
-            ]
+        if snapshots is None and timestamps is None:
+            snapshots = search(
+                url,
+                uniques_only=uniques_only,
+                session=self.session,
+                wildcard=wildcard,
+            )
+
+        if snapshots is not None:
+            self.timestamps = [snap["timestamp"] for snap in snapshots]
         else:
             self.timestamps = timestamps
 
-        self.assets = [Asset(self.url, ts) for ts in self.timestamps]
+        if wildcard:
+            # Each snapshot may come from a different URL, so each asset
+            # needs to remember its own.
+            if snapshots is None:
+                raise ValueError(
+                    "wildcard=True requires `snapshots`, not `timestamps`."
+                )
+            self.assets = [Asset(s["original"], s["timestamp"]) for s in snapshots]
+        else:
+            self.assets = [Asset(self.url, ts) for ts in self.timestamps]
 
     def download_to(
         self,
@@ -78,21 +102,50 @@ class Pack(object):
                 "To print progress bars, you must have `tqdm` installed. To install: pip install tqdm."
             )
 
+        case_insensitive = False
+        if self.wildcard:
+            case_insensitive = is_case_insensitive(directory)
+            if case_insensitive:
+                logger.warning(
+                    "The filesystem at {0!r} is case-insensitive, but web "
+                    "servers' paths often are not. If a wildcard match "
+                    "includes URLs that differ only in capitalization "
+                    "(e.g., /Foo.html and /foo.html) from the same snapshot "
+                    "timestamp, only the first will be saved; the rest will "
+                    "be skipped with a warning. To avoid this, download to a "
+                    "case-sensitive filesystem.".format(directory)
+                )
+        written = set()
+
         for i, asset in enumerate(tqdm(self.assets) if progress else self.assets):
-            path_head, path_tail = os.path.split(self.parsed_url.path)
+            parsed_url = urlparse(
+                asset.original_url if self.wildcard else self.full_url
+            )
+            path_head, path_tail = os.path.split(parsed_url.path)
             if path_tail == "":
                 path_tail = "index.html"
 
             filedir = os.path.join(
                 directory,
                 asset.timestamp,
-                replace_invalid_chars(self.parsed_url.netloc, fallback_char),
+                replace_invalid_chars(parsed_url.netloc, fallback_char),
                 replace_invalid_chars(path_head.lstrip("/"), fallback_char),
             )
 
             filepath = os.path.join(
                 filedir, replace_invalid_chars(path_tail, fallback_char)
             )
+
+            if case_insensitive:
+                key = filepath.lower()
+                if key in written:
+                    logger.warning(
+                        "Skipping {0} @ {1}: would overwrite a file differing "
+                        "only in capitalization ({2})".format(
+                            asset.original_url, asset.timestamp, filepath
+                        )
+                    )
+                    continue
 
             if no_clobber and (
                 os.path.exists(filepath) and os.path.getsize(filepath) > 0
@@ -133,3 +186,6 @@ class Pack(object):
             with open(filepath, "wb") as f:
                 logger.info("Writing to {0}\n".format(filepath))
                 f.write(content)
+
+            if case_insensitive:
+                written.add(filepath.lower())

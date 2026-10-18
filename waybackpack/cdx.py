@@ -1,6 +1,7 @@
 import logging
 
 from .session import Session
+from .wildcard import WildcardPattern
 
 logger = logging.getLogger(__name__)
 
@@ -12,8 +13,31 @@ class WaybackpackException(Exception):
 
 
 def search(
-    url, from_date=None, to_date=None, uniques_only=False, collapse=None, session=None
+    url,
+    from_date=None,
+    to_date=None,
+    uniques_only=False,
+    collapse=None,
+    session=None,
+    wildcard=False,
 ):
+
+    pattern = None
+    if wildcard:
+        try:
+            pattern = WildcardPattern(url)
+        except ValueError as e:
+            raise WaybackpackException(str(e))
+        if pattern.is_wildcard:
+            # The CDX API only understands prefix/domain matches, so ask for
+            # the coarse superset and apply the full pattern below.
+            url = pattern.cdx_url
+        else:
+            logger.warning(
+                "--wildcard was given, but the URL contains no wildcard "
+                "characters (*, ?, [); treating it as an ordinary URL."
+            )
+            pattern = None
 
     session = session or Session()
     res = session.get(
@@ -42,6 +66,8 @@ def search(
         return []
     fields = cdx[0]
     snapshots = [dict(zip(fields, row)) for row in cdx[1:]]
+    if pattern is not None:
+        snapshots = [s for s in snapshots if pattern.matches(s["original"])]
     if uniques_only:
         if len(snapshots) and "dupecount" not in snapshots[0]:
             raise WaybackpackException(
