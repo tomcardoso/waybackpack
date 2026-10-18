@@ -35,7 +35,7 @@ def parse_args():
     parser.add_argument(
         "--wildcard",
         action="store_true",
-        help="Treat the URL as a wildcard pattern, and download every archived URL that matches it. '*' matches within a path segment, '**' matches across segments, '?' matches one character, and '[abc]' matches any listed character. E.g., 'example.com/**/*.html' matches every archived .html page on example.com, skipping any snapshots whose status isn't 200. Quote the URL so that your shell doesn't expand it. Caution: URL paths are usually case-sensitive, but MacOS and Windows filesystems usually aren't, so URLs that differ only in capitalization can collide. If the target directory is case-insensitive, waybackpack warns you and skips (rather than overwrites) colliding files.",
+        help="Treat the URL as a wildcard pattern, and download every archived URL that matches it. '*' matches within a path segment, '**' matches across segments, '?' matches one character, and '[abc]' matches any listed character. Matching ignores case. E.g., 'example.com/**/*.html' matches every archived .html page on example.com, skipping any snapshots whose status isn't 200. Quote the URL so that your shell doesn't expand it. Caution: URL paths are usually case-sensitive, but MacOS and Windows filesystems usually aren't, so URLs that differ only in capitalization can collide. If the target directory is case-insensitive, waybackpack warns you and skips (rather than overwrites) colliding files.",
     )
 
     parser.add_argument(

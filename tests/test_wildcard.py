@@ -62,8 +62,10 @@ class Test(unittest.TestCase):
         assert normalize_original("http://a.com:80/x") == "a.com/x"
         assert normalize_original("http://a.com:8080/x") == "a.com:8080/x"
 
-    def test_path_case_sensitive(self):
-        assert not self.match("example.com/Foo/*", "http://example.com/foo/a")
+    def test_case_insensitive(self):
+        assert self.match("example.com/Foo/*", "http://example.com/foo/a")
+        assert self.match("example.com/**/*.html", "http://example.com/A/B.HTML")
+        assert self.match("example.com/p[a-c].html", "http://example.com/PB.html")
 
     def test_subdomain(self):
         assert self.match("*.example.com/**", "http://a.b.example.com/x")

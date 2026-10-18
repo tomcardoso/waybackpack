@@ -17,7 +17,7 @@ def has_glob(s):
 
 
 def split_url(url):
-    # Only the host is lowercased; paths are case-sensitive on the server.
+    # Only the host is lowercased here; matching ignores case (see below).
     url = SCHEME_PATTERN.sub("", url)
     slash = url.find("/")
     if slash == -1:
@@ -44,6 +44,7 @@ def glob_to_regex(pattern):
     # **/  matches zero or more whole directories
     # ?    matches one character, except "/"
     # [..] matches a character class; [!..] negates it
+    # Matching is case-insensitive.
     i, n = 0, len(pattern)
     out = []
     while i < n:
@@ -71,7 +72,7 @@ def glob_to_regex(pattern):
         else:
             out.append(re.escape(c))
             i += 1
-    return re.compile("".join(out) + r"\Z", re.DOTALL)
+    return re.compile("".join(out) + r"\Z", re.DOTALL | re.IGNORECASE)
 
 
 class WildcardPattern(object):
