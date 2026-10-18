@@ -89,6 +89,7 @@ class Test(unittest.TestCase):
         s = self.session()
         snaps = waybackpack.search("example.com/**/*.html", session=s, wildcard=True)
         assert s.get.call_args[1]["params"]["url"] == "example.com/*"
+        assert s.get.call_args[1]["params"]["filter"] == "statuscode:200"
         assert [x["original"] for x in snaps] == [
             "http://example.com/a/one.html",
             "http://example.com/a/b/two.html",
@@ -99,6 +100,7 @@ class Test(unittest.TestCase):
         s = self.session()
         snaps = waybackpack.search("example.com/**/*.html", session=s)
         assert s.get.call_args[1]["params"]["url"] == "example.com/**/*.html"
+        assert s.get.call_args[1]["params"]["filter"] is None
         assert len(snaps) == 4
 
     def test_flag_without_glob_chars(self):

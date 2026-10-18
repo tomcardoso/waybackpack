@@ -49,6 +49,7 @@ def search(
             "showDupeCount": "true",
             "output": "json",
             "collapse": collapse,
+            "filter": "statuscode:200" if wildcard else None,
         },
     )
     if res is None:
