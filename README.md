@@ -34,6 +34,37 @@ Or, just to print the URLs of all archived snapshots:
 waybackpack http://www.dol.gov/ --list
 ```
 
+To download archived `.html` pages from across a site, use `--wildcard` (and quote the URL, so your shell doesn't expand it):
+
+```sh
+waybackpack "http://example.com/**/*.html" -d ~/Downloads/example-wayback --wildcard --from-date 2005 --to-date 2008 --delay 1 --no-clobber
+```
+
+In a pattern, `*` matches within a single path segment, `**` matches across segments (and `**/` also matches no directories at all), `?` matches one character, `[abc]` matches any of the listed characters, and `[!abc]` matches any other character. Matching ignores case, so `*.html` also matches `PAGE.HTML`. It also ignores the scheme, default ports (`:80` and `:443`), and a leading `www.`. The host can't contain wildcards, except for a leading `*.`: `*.example.com/**` matches `example.com`, `www.example.com`, and any other subdomain of `example.com`.
+
+The pattern is matched against each snapshot's host, path, *and* query string. So `example.com/**/*.pdf` doesn't match `example.com/report.pdf?download=1`; `example.com/**/*.pdf*` does (but also matches, e.g., `/file.pdfx`).
+
+How it works: waybackpack asks the CDX API for every snapshot under the pattern's fixed prefix (e.g., `example.com/*` for `example.com/**/*.html`), then applies the full pattern itself. So a narrow pattern with a short prefix can still mean downloading a long list of results. If the URL contains no wildcard characters, `--wildcard` treats it as an ordinary URL.
+
+Some snapshots won't be included:
+
+- Only snapshots that the CDX API lists with a `200` status are included, so redirects and errors are skipped.
+- The Wayback Machine can record an unchanged page as a "revisit" of an earlier capture. It hasn't yet been checked whether the CDX API lists revisits with a `200` status. If it doesn't, they are skipped too, so a page that didn't change during your date range could be missing from the results.
+
+Each snapshot is saved under its own timestamp, host, and path, e.g., `20050101000000/example.com/some/page.html`. A query string is added to the filename, percent-encoded (e.g., `page.php%3Fid%3D1`), or replaced by a hash if the name would be too long. If two URLs in the same snapshot need a file and a directory at the same path (e.g., `/about` and `/about/team`), the second is skipped with a warning.
+
+Caution: Paths on a web server are usually case-sensitive, but the default filesystems on MacOS and Windows are not, so `PATH/TO/file.txt` and `path/to/FILE.txt` can collide there. If `--wildcard` finds that the target directory is case-insensitive, it will log a warning and, within a single run, skip colliding files rather than overwrite them. A file saved by an earlier run can still be overwritten by a colliding file, unless you use `--no-clobber`.
+
+To download only certain kinds of files, add `--filter`, which passes an archive.org [`filter`](https://github.com/internetarchive/wayback/blob/master/wayback-cdx-server/README.md#filtering) through. Snapshots must match the pattern *and* every filter. For instance, to download PDFs from one site during a given period:
+
+```sh
+waybackpack "example.com/**/*.pdf*" -d ~/Downloads/example-pdfs --wildcard --filter mimetype:application/pdf --from-date 2005 --to-date 2008 --raw --delay 1 --no-clobber
+```
+
+That skips PDFs that the archive recorded under another MIME type (e.g., `application/octet-stream`), and, if revisits aren't listed with a `200` status, revisits too. Drop `--filter` to rely on the pattern alone, or drop the `.pdf` from the pattern to rely on the MIME type alone.
+
+Wildcard searches can match a very large number of snapshots. Use `--list` first to check how many there are (e.g., `| wc -l`), and narrow the search with a shorter date range, a longer fixed prefix in the pattern, or `--filter`. `--collapse` can also help, but it hasn't been checked whether it behaves exactly as usual when results come back in several pages, as they do with `--wildcard`.
+
 ## Installation
 
 ```
@@ -43,8 +74,8 @@ pip install waybackpack
 ## Usage
 
 ```
-usage: waybackpack [-h] [--version] (-d DIR | --list) [--raw] [--root ROOT]
-                   [--from-date FROM_DATE] [--to-date TO_DATE]
+usage: waybackpack [-h] [--version] (-d DIR | --list) [--wildcard] [--raw]
+                   [--root ROOT] [--from-date FROM_DATE] [--to-date TO_DATE]
                    [--user-agent USER_AGENT] [--follow-redirects]
                    [--uniques-only] [--collapse COLLAPSE] [--filter FILTER]
                    [--ignore-errors] [--max-retries MAX_RETRIES]
@@ -62,6 +93,28 @@ options:
                         directory if it doesn't already exist.
   --list                Instead of downloading the files, only print the list
                         of snapshots.
+  --wildcard            Treat the URL as a wildcard pattern, and download the
+                        archived snapshots whose URLs match it. '*' matches
+                        within a path segment, '**' matches across segments,
+                        '?' matches one character, '[abc]' matches any listed
+                        character, and '[!abc]' any other. Matching ignores
+                        case, the scheme, default ports, and a leading 'www.'.
+                        The query string is part of the matched text, so
+                        'example.com/**/*.pdf' doesn't match
+                        '/report.pdf?dl=1'. The host can't contain wildcards,
+                        except a leading '*.', which matches the host itself
+                        and all its subdomains. Only snapshots that the CDX
+                        API lists with a 200 status are included. If the URL
+                        contains no wildcard characters, it is treated as an
+                        ordinary URL, without that status filter. Quote the
+                        URL so that your shell doesn't expand it. Caution: URL
+                        paths are usually case-sensitive, but MacOS and
+                        Windows filesystems usually aren't, so URLs that
+                        differ only in capitalization can collide. If the
+                        target directory is case-insensitive, waybackpack
+                        warns you and, within a single run, skips colliding
+                        files rather than overwriting them. See the README for
+                        more caveats.
   --raw                 Fetch file in its original state, without any
                         processing by the Wayback Machine or waybackpack.
   --root ROOT           The root URL from which to serve snapshotted
@@ -91,8 +144,9 @@ options:
   --filter FILTER       An archive.org `filter` parameter. E.g., --filter
                         mimetype:application/pdf keeps only snapshots that the
                         archive recorded with that MIME type. Can be repeated;
-                        snapshots must match every filter. See here: https://g
-                        ithub.com/internetarchive/wayback/blob/master/wayback-
+                        snapshots must match every filter. With --wildcard,
+                        statuscode:200 is always added. See here: https://gith
+                        ub.com/internetarchive/wayback/blob/master/wayback-
                         cdx-server/README.md#filtering
   --ignore-errors       Don't crash on non-HTTP errors e.g., the requests
                         library's ChunkedEncodingError. Instead, log error and
@@ -106,7 +160,8 @@ options:
   --quiet               Don't log progress to stderr.
   --progress            Print a progress bar. Mutes the default logging.
                         Requires `tqdm` to be installed.
-  --delay DELAY         Sleep X seconds between each fetch.
+  --delay DELAY         Sleep X seconds between each fetch, including between
+                        pages of --wildcard search results.
   --delay-retry DELAY_RETRY
                         Sleep X seconds between each post-error retry.
 ```
