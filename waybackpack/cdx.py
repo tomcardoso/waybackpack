@@ -12,7 +12,13 @@ class WaybackpackException(Exception):
 
 
 def search(
-    url, from_date=None, to_date=None, uniques_only=False, collapse=None, session=None
+    url,
+    from_date=None,
+    to_date=None,
+    uniques_only=False,
+    collapse=None,
+    session=None,
+    filters=None,
 ):
 
     session = session or Session()
@@ -25,6 +31,7 @@ def search(
             "showDupeCount": "true",
             "output": "json",
             "collapse": collapse,
+            "filter": filters,
         },
     )
     if res is None:
