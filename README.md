@@ -48,6 +48,8 @@ As in a URL, `?` starts the query string (so, unlike in other globs, it isn't a 
 - With a `?`, the query string must match the part after it, where `*` matches anything, including `/`. `example.com/view.php?id=*` matches `view.php?id=5` and `view.php?id=5&page=2`, but not `view.php` or `view.php?page=2&id=5`: query strings are matched as written, so the order of parameters matters.
 - A trailing `?` matches only URLs without a query string, e.g., `example.com/page.php?`.
 
+A fragment (anything after `#`) is ignored, in patterns and in snapshot URLs alike, because the CDX API ignores it too: `example.com/view.php#top` searches for `example.com/view.php`.
+
 How it works: waybackpack asks the CDX API for every snapshot under the pattern's fixed prefix (e.g., `example.com/*` for `example.com/**/*.html`), then applies the full pattern itself. So a narrow pattern with a short prefix can still mean downloading a long list of results. Query strings are narrowed only in this second step. If the URL contains no `*`, `[`, or `?`, `--wildcard` treats it as an ordinary URL.
 
 Some snapshots won't be included:

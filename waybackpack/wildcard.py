@@ -93,7 +93,10 @@ def translate(pattern, query=False):
 class WildcardPattern(object):
     def __init__(self, pattern):
         self.pattern = pattern
-        host, rest = split_url(pattern)
+        # Snapshot URLs are matched without a fragment, so drop the pattern's.
+        url, sep, fragment = pattern.partition("#")
+        self.fragment = fragment if sep else None
+        host, rest = split_url(url)
         path, sep, query = rest.partition("?")
         path = path or "/"
         has_query = sep == "?"

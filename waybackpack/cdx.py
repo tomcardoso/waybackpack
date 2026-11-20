@@ -75,6 +75,12 @@ def search(
             pattern = WildcardPattern(url)
         except ValueError as e:
             raise WaybackpackException(str(e))
+        if pattern.fragment is not None:
+            logger.info(
+                "Ignoring {0!r}: the CDX API ignores URL fragments.".format(
+                    "#" + pattern.fragment
+                )
+            )
         if pattern.is_wildcard:
             # The CDX API only understands prefix/domain matches, so ask for
             # the coarse superset and apply the full pattern below.

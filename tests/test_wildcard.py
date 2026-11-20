@@ -104,6 +104,24 @@ class Test(unittest.TestCase):
         with self.assertRaises(ValueError):
             WildcardPattern("exa*mple.com?x=1")
 
+    def test_fragment_ignored(self):
+        # Snapshot URLs are matched without their fragment, so patterns are too.
+        p = WildcardPattern("example.com/view.php?id=*#top")
+        assert p.fragment == "top"
+        assert p.cdx_url == "example.com/view.php*"
+        assert self.match(
+            "example.com/view.php?id=*#top", "http://example.com/view.php?id=5#x"
+        )
+        assert self.match("example.com/*.php#1", "http://example.com/view.php")
+        assert WildcardPattern("example.com/*.php").fragment is None
+
+    def test_fragment_logged(self):
+        s = self.session()
+        with self.assertLogs("waybackpack.cdx", level="INFO") as cm:
+            waybackpack.search("example.com/**/*.html#top", session=s, wildcard=True)
+        assert s.get.call_args[1]["params"]["url"] == "example.com/*"
+        assert any("Ignoring '#top'" in m for m in cm.output)
+
     def test_scheme_port_host_case(self):
         assert self.match("example.com/**", "http://EXAMPLE.com:80/x/y")
         assert self.match("EXAMPLE.com/**", "http://example.com/x")
