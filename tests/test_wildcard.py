@@ -49,17 +49,60 @@ class Test(unittest.TestCase):
         assert self.match(pat, "http://nywork.craigslist.org/a/b/c/123.html")
         assert self.match(pat, "http://nywork.craigslist.org/123.html")
         assert not self.match(pat, "http://nywork.craigslist.org/a/123.htm")
-        assert not self.match(pat, "http://nywork.craigslist.org/a/123.html?x=1")
+        assert self.match(pat, "http://nywork.craigslist.org/a/123.html?x=1")
 
     def test_single_star_stops_at_slash(self):
         assert self.match("example.com/a/*.html", "http://example.com/a/b.html")
         assert not self.match("example.com/a/*.html", "http://example.com/a/b/c.html")
 
-    def test_question_and_class(self):
-        assert self.match("example.com/p?.html", "http://example.com/p1.html")
-        assert not self.match("example.com/p?.html", "http://example.com/p12.html")
+    def test_class(self):
+        assert self.match("example.com/p[0-9].html", "http://example.com/p1.html")
+        assert not self.match("example.com/p[0-9].html", "http://example.com/p12.html")
         assert self.match("example.com/p[12].html", "http://example.com/p2.html")
         assert not self.match("example.com/p[!12].html", "http://example.com/p2.html")
+
+    def test_no_query_in_pattern_allows_any_query(self):
+        pat = "example.com/**/*.pdf"
+        assert self.match(pat, "http://example.com/a/report.pdf")
+        assert self.match(pat, "http://example.com/a/report.pdf?download=1")
+        assert self.match(pat, "http://example.com/report.pdf?u=a/b.pdf")
+        assert not self.match(pat, "http://example.com/report.pdfx?download=1")
+
+    def test_query_in_pattern(self):
+        pat = "example.com/view.php?id=*"
+        p = WildcardPattern(pat)
+        assert p.is_wildcard
+        assert p.cdx_url == "example.com/view.php*"
+        assert self.match(pat, "http://example.com/view.php?id=5")
+        assert self.match(pat, "http://example.com/view.php?id=5&page=2")
+        assert self.match(pat, "http://example.com/view.php?id=a/b")
+        assert self.match(pat, "http://example.com/VIEW.php?ID=5")
+        assert not self.match(pat, "http://example.com/view.php")
+        assert not self.match(pat, "http://example.com/view.php?page=2&id=5")
+        assert not self.match(pat, "http://example.com/view.phpXid=5")
+        assert not self.match(pat, "http://example.com/a/view.php?id=5")
+
+    def test_exact_query(self):
+        # A pasted URL with a query string is a pattern for exactly that URL.
+        pat = "example.com/view.php?id=5"
+        assert WildcardPattern(pat).cdx_url == "example.com/view.php*"
+        assert self.match(pat, "http://example.com/view.php?id=5")
+        assert not self.match(pat, "http://example.com/view.php?id=50")
+        assert self.match("example.com/s?q=a?b", "http://example.com/s?q=a?b")
+
+    def test_trailing_question_mark_means_no_query(self):
+        pat = "example.com/page.php?"
+        assert self.match(pat, "http://example.com/page.php")
+        assert not self.match(pat, "http://example.com/page.php?id=1")
+
+    def test_query_without_path(self):
+        p = WildcardPattern("example.com?x=*")
+        assert p.cdx_url == "example.com/*"
+        assert self.match("example.com?x=*", "http://example.com/?x=1")
+        assert not self.match("example.com?x=*", "http://example.com/a?x=1")
+        assert self.match("*.example.com?x=*", "http://news.example.com/?x=1")
+        with self.assertRaises(ValueError):
+            WildcardPattern("exa*mple.com?x=1")
 
     def test_scheme_port_host_case(self):
         assert self.match("example.com/**", "http://EXAMPLE.com:80/x/y")

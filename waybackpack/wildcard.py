@@ -7,7 +7,8 @@ try:
 except ImportError:
     from urlparse import urlparse
 
-GLOB_CHARS = "*?["
+# "?" isn't a glob character: in a pattern, as in a URL, it starts the query.
+GLOB_CHARS = "*["
 
 SCHEME_PATTERN = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*://")
 
@@ -28,11 +29,8 @@ def strip_www(host):
 def split_url(url):
     # Only the host is lowercased here; matching ignores case (see below).
     url = SCHEME_PATTERN.sub("", url)
-    slash = url.find("/")
-    if slash == -1:
-        host, rest = url, ""
-    else:
-        host, rest = url[:slash], url[slash:]
+    end = min([i for i in (url.find("/"), url.find("?")) if i != -1] or [len(url)])
+    host, rest = url[:end], url[end:]
     # Default ports are dropped, as normalize_original does for snapshots.
     host = DEFAULT_PORT_PATTERN.sub("", host.lower())
     return strip_www(host), rest
@@ -55,28 +53,24 @@ def glob_to_regex(pattern):
     return re.compile(translate(pattern) + r"\Z", re.DOTALL | re.IGNORECASE)
 
 
-def translate(pattern):
-    # *    matches anything except "/"
+def translate(pattern, query=False):
+    # *    matches anything except "/" (in a query, anything at all)
     # **   matches anything, including "/"
     # **/  matches zero or more whole directories
-    # ?    matches one character, except "/"
     # [..] matches a character class; [!..] negates it
     # Matching is case-insensitive.
     i, n = 0, len(pattern)
     out = []
     while i < n:
         c = pattern[i]
-        if pattern.startswith("**/", i):
+        if pattern.startswith("**/", i) and not query:
             out.append("(?:.*/)?")
             i += 3
         elif pattern.startswith("**", i):
             out.append(".*")
             i += 2
         elif c == "*":
-            out.append("[^/]*")
-            i += 1
-        elif c == "?":
-            out.append("[^/]")
+            out.append(".*" if query else "[^/]*")
             i += 1
         elif c == "[" and pattern.find("]", i + 2) != -1:
             j = pattern.find("]", i + 2)
@@ -100,7 +94,9 @@ class WildcardPattern(object):
     def __init__(self, pattern):
         self.pattern = pattern
         host, rest = split_url(pattern)
-        self.normalized = host + (rest or "/")
+        path, sep, query = rest.partition("?")
+        path = path or "/"
+        has_query = sep == "?"
 
         # The CDX API only understands prefix and domain matches, so
         # cdx_url is the coarser query; matches() applies the full pattern.
@@ -112,9 +108,12 @@ class WildcardPattern(object):
                     )
                 )
             self.cdx_url = host
-        elif has_glob(rest):
-            first = min(rest.index(c) for c in GLOB_CHARS if c in rest)
-            self.cdx_url = host + rest[:first] + "*"
+        elif has_glob(path):
+            first = min(path.index(c) for c in GLOB_CHARS if c in path)
+            self.cdx_url = host + path[:first] + "*"
+        elif has_query:
+            # Query strings are narrowed locally, not in the CDX query.
+            self.cdx_url = host + path + "*"
         else:
             self.cdx_url = None
 
@@ -123,9 +122,18 @@ class WildcardPattern(object):
             host_regex = r"(?:[^/]*\.)?" + re.escape(host[2:])
         else:
             host_regex = translate(host)
+        if not has_query:
+            # No "?" in the pattern: any query string, or none.
+            query_regex = r"(?:\?.*)?"
+        elif query:
+            query_regex = r"\?" + translate(query, query=True)
+        else:
+            # A trailing "?": no query string.
+            query_regex = ""
         try:
             self.regex = re.compile(
-                host_regex + translate(rest or "/") + r"\Z", re.DOTALL | re.IGNORECASE
+                host_regex + translate(path) + query_regex + r"\Z",
+                re.DOTALL | re.IGNORECASE,
             )
         except re.error as e:
             raise ValueError(

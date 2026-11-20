@@ -40,11 +40,15 @@ To download archived `.html` pages from across a site, use `--wildcard` (and quo
 waybackpack "http://example.com/**/*.html" -d ~/Downloads/example-wayback --wildcard --from-date 2005 --to-date 2008 --delay 1 --no-clobber
 ```
 
-In a pattern, `*` matches within a single path segment, `**` matches across segments (and `**/` also matches no directories at all), `?` matches one character, `[abc]` matches any of the listed characters, and `[!abc]` matches any other character. Matching ignores case, so `*.html` also matches `PAGE.HTML`. It also ignores the scheme, default ports (`:80` and `:443`), and a leading `www.`. The host can't contain wildcards, except for a leading `*.`: `*.example.com/**` matches `example.com`, `www.example.com`, and any other subdomain of `example.com`.
+In a pattern, `*` matches within a single path segment, `**` matches across segments (and `**/` also matches no directories at all), `[abc]` matches any of the listed characters, and `[!abc]` matches any other character. Matching ignores case, so `*.html` also matches `PAGE.HTML`. It also ignores the scheme, default ports (`:80` and `:443`), and a leading `www.`. The host can't contain wildcards, except for a leading `*.`: `*.example.com/**` matches `example.com`, `www.example.com`, and any other subdomain of `example.com`.
 
-The pattern is matched against each snapshot's host, path, *and* query string. So `example.com/**/*.pdf` doesn't match `example.com/report.pdf?download=1`; `example.com/**/*.pdf*` does (but also matches, e.g., `/file.pdfx`).
+As in a URL, `?` starts the query string (so, unlike in other globs, it isn't a one-character wildcard):
 
-How it works: waybackpack asks the CDX API for every snapshot under the pattern's fixed prefix (e.g., `example.com/*` for `example.com/**/*.html`), then applies the full pattern itself. So a narrow pattern with a short prefix can still mean downloading a long list of results. If the URL contains no wildcard characters, `--wildcard` treats it as an ordinary URL.
+- With no `?`, the pattern matches the path, and any query string, or none, is allowed. `example.com/**/*.pdf` matches both `example.com/report.pdf` and `example.com/report.pdf?download=1`.
+- With a `?`, the query string must match the part after it, where `*` matches anything, including `/`. `example.com/view.php?id=*` matches `view.php?id=5` and `view.php?id=5&page=2`, but not `view.php` or `view.php?page=2&id=5`: query strings are matched as written, so the order of parameters matters.
+- A trailing `?` matches only URLs without a query string, e.g., `example.com/page.php?`.
+
+How it works: waybackpack asks the CDX API for every snapshot under the pattern's fixed prefix (e.g., `example.com/*` for `example.com/**/*.html`), then applies the full pattern itself. So a narrow pattern with a short prefix can still mean downloading a long list of results. Query strings are narrowed only in this second step. If the URL contains no `*`, `[`, or `?`, `--wildcard` treats it as an ordinary URL.
 
 Some snapshots won't be included:
 
@@ -58,7 +62,7 @@ Caution: Paths on a web server are usually case-sensitive, but the default files
 To download only certain kinds of files, add `--filter`, which passes an archive.org [`filter`](https://github.com/internetarchive/wayback/blob/master/wayback-cdx-server/README.md#filtering) through. Snapshots must match the pattern *and* every filter. For instance, to download PDFs from one site during a given period:
 
 ```sh
-waybackpack "example.com/**/*.pdf*" -d ~/Downloads/example-pdfs --wildcard --filter mimetype:application/pdf --from-date 2005 --to-date 2008 --raw --delay 1 --no-clobber
+waybackpack "example.com/**/*.pdf" -d ~/Downloads/example-pdfs --wildcard --filter mimetype:application/pdf --from-date 2005 --to-date 2008 --raw --delay 1 --no-clobber
 ```
 
 That skips PDFs that the archive recorded under another MIME type (e.g., `application/octet-stream`), and, if revisits aren't listed with a `200` status, revisits too. Drop `--filter` to rely on the pattern alone, or drop the `.pdf` from the pattern to rely on the MIME type alone.
@@ -96,25 +100,26 @@ options:
   --wildcard            Treat the URL as a wildcard pattern, and download the
                         archived snapshots whose URLs match it. '*' matches
                         within a path segment, '**' matches across segments,
-                        '?' matches one character, '[abc]' matches any listed
-                        character, and '[!abc]' any other. Matching ignores
-                        case, the scheme, default ports, and a leading 'www.'.
-                        The query string is part of the matched text, so
-                        'example.com/**/*.pdf' doesn't match
-                        '/report.pdf?dl=1'. The host can't contain wildcards,
-                        except a leading '*.', which matches the host itself
-                        and all its subdomains. Only snapshots that the CDX
-                        API lists with a 200 status are included. If the URL
-                        contains no wildcard characters, it is treated as an
-                        ordinary URL, without that status filter. Quote the
-                        URL so that your shell doesn't expand it. Caution: URL
-                        paths are usually case-sensitive, but MacOS and
-                        Windows filesystems usually aren't, so URLs that
-                        differ only in capitalization can collide. If the
-                        target directory is case-insensitive, waybackpack
-                        warns you and, within a single run, skips colliding
-                        files rather than overwriting them. See the README for
-                        more caveats.
+                        '[abc]' matches any listed character, and '[!abc]' any
+                        other. As in a URL, '?' starts the query string:
+                        'example.com/**/*.pdf' matches PDFs with any query
+                        string or none, 'example.com/view.php?id=*' matches
+                        only URLs whose query string starts with 'id=', and a
+                        trailing '?' matches only URLs without one. Matching
+                        ignores case, the scheme, default ports, and a leading
+                        'www.'. The host can't contain wildcards, except a
+                        leading '*.', which matches the host itself and all
+                        its subdomains. Only snapshots that the CDX API lists
+                        with a 200 status are included. If the URL contains no
+                        '*', '[', or '?', it is treated as an ordinary URL,
+                        without that status filter. Quote the URL so that your
+                        shell doesn't expand it. Caution: URL paths are
+                        usually case-sensitive, but MacOS and Windows
+                        filesystems usually aren't, so URLs that differ only
+                        in capitalization can collide. If the target directory
+                        is case-insensitive, waybackpack warns you and, within
+                        a single run, skips colliding files rather than
+                        overwriting them. See the README for more caveats.
   --raw                 Fetch file in its original state, without any
                         processing by the Wayback Machine or waybackpack.
   --root ROOT           The root URL from which to serve snapshotted
