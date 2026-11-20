@@ -55,19 +55,19 @@ How it works: waybackpack asks the CDX API for every snapshot under the pattern'
 Some snapshots won't be included:
 
 - Only snapshots that the CDX API lists with a `200` status are included, so redirects and errors are skipped.
-- The Wayback Machine can record an unchanged page as a "revisit" of an earlier capture. It hasn't yet been checked whether the CDX API lists revisits with a `200` status. If it doesn't, they are skipped too, so a page that didn't change during your date range could be missing from the results.
+- The Wayback Machine can record an unchanged page as a "revisit" of an earlier capture. The CDX API lists revisits with a status of `-` (and a MIME type of `warc/revisit`), so they are skipped too. A page that didn't change during your date range could therefore be missing from the results, if its last full capture came before the range.
 
 Each snapshot is saved under its own timestamp, host, and path, e.g., `20050101000000/example.com/some/page.html`. A query string is added to the filename, percent-encoded (e.g., `page.php%3Fid%3D1`), or replaced by a hash if the name would be too long. If two URLs in the same snapshot need a file and a directory at the same path (e.g., `/about` and `/about/team`), the second is skipped with a warning.
 
 Caution: Paths on a web server are usually case-sensitive, but the default filesystems on MacOS and Windows are not, so `PATH/TO/file.txt` and `path/to/FILE.txt` can collide there. If `--wildcard` finds that the target directory is case-insensitive, it will log a warning and, within a single run, skip colliding files rather than overwrite them. A file saved by an earlier run can still be overwritten by a colliding file, unless you use `--no-clobber`.
 
-To download only certain kinds of files, add `--filter`, which passes an archive.org [`filter`](https://github.com/internetarchive/wayback/blob/master/wayback-cdx-server/README.md#filtering) through. Snapshots must match the pattern *and* every filter. For instance, to download PDFs from one site during a given period:
+To download only certain kinds of files, add `--filter`, which passes an archive.org [`filter`](https://github.com/internetarchive/wayback/blob/master/wayback-cdx-server/README.md#filtering) through. Snapshots must match the pattern *and* every filter. The CDX API matches filters case-sensitively, but MIME types aren't case-sensitive, so waybackpack adds the `(?i)` (ignore case) flag to `mimetype` filters: `--filter mimetype:application/pdf` also matches `Application/PDF`. For instance, to download PDFs from one site during a given period:
 
 ```sh
 waybackpack "example.com/**/*.pdf" -d ~/Downloads/example-pdfs --wildcard --filter mimetype:application/pdf --from-date 2005 --to-date 2008 --raw --delay 1 --no-clobber
 ```
 
-That skips PDFs that the archive recorded under another MIME type (e.g., `application/octet-stream`), and, if revisits aren't listed with a `200` status, revisits too. Drop `--filter` to rely on the pattern alone, or drop the `.pdf` from the pattern to rely on the MIME type alone.
+That skips PDFs that the archive recorded under another MIME type (e.g., `application/octet-stream`), and revisits, which the CDX API lists with a MIME type of `warc/revisit`. Drop `--filter` to rely on the pattern alone, or drop the `.pdf` from the pattern to rely on the MIME type alone.
 
 Wildcard searches can match a very large number of snapshots. Use `--list` first to check how many there are (e.g., `| wc -l`), and narrow the search with a shorter date range, a longer fixed prefix in the pattern, or `--filter`. `--collapse` can also help, but it hasn't been checked whether it behaves exactly as usual when results come back in several pages, as they do with `--wildcard`.
 
@@ -112,7 +112,8 @@ options:
                         'www.'. The host can't contain wildcards, except a
                         leading '*.', which matches the host itself and all
                         its subdomains. Only snapshots that the CDX API lists
-                        with a 200 status are included. If the URL contains no
+                        with a 200 status are included, which leaves out
+                        revisits of unchanged pages. If the URL contains no
                         '*', '[', or '?', it is treated as an ordinary URL,
                         without that status filter. Quote the URL so that your
                         shell doesn't expand it. Caution: URL paths are
@@ -150,11 +151,12 @@ options:
                         server/README.md#collapsing
   --filter FILTER       An archive.org `filter` parameter. E.g., --filter
                         mimetype:application/pdf keeps only snapshots that the
-                        archive recorded with that MIME type. Can be repeated;
-                        snapshots must match every filter. With --wildcard,
-                        statuscode:200 is always added. See here: https://gith
-                        ub.com/internetarchive/wayback/blob/master/wayback-
-                        cdx-server/README.md#filtering
+                        archive recorded with that MIME type (ignoring case,
+                        unlike other fields). Can be repeated; snapshots must
+                        match every filter. With --wildcard, statuscode:200 is
+                        always added. See here: https://github.com/internetarc
+                        hive/wayback/blob/master/wayback-cdx-
+                        server/README.md#filtering
   --ignore-errors       Don't crash on non-HTTP errors e.g., the requests
                         library's ChunkedEncodingError. Instead, log error and
                         continue. See here:

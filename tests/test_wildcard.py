@@ -242,11 +242,11 @@ class Test(unittest.TestCase):
         )
         assert s.get.call_args[1]["params"]["filter"] == [
             "statuscode:200",
-            "mimetype:application/pdf",
+            "mimetype:(?i)application/pdf",
         ]
         s = self.session()
         waybackpack.search("example.com", session=s, filters=["mimetype:text/html"])
-        assert s.get.call_args[1]["params"]["filter"] == ["mimetype:text/html"]
+        assert s.get.call_args[1]["params"]["filter"] == ["mimetype:(?i)text/html"]
 
     def test_delay_between_pages(self):
         page1 = cdx_response(self.ROWS[0])

@@ -1,4 +1,5 @@
 import logging
+import re
 import time
 
 import requests
@@ -45,6 +46,17 @@ def get_page(session, params, kwargs):
                 )
             )
             time.sleep(session.delay_retry)
+
+
+MIMETYPE_FILTER = re.compile(r"^(!?mimetype:)(?!\(\?i\))")
+
+
+def ignore_mimetype_case(filters):
+    # The CDX API matches filters case-sensitively, but MIME types are
+    # case-insensitive, so add the (?i) flag to mimetype filters.
+    if filters is None:
+        return None
+    return [MIMETYPE_FILTER.sub(r"\1(?i)", f) for f in filters]
 
 
 def fail(msg, rows, resume_key):
@@ -99,12 +111,12 @@ def search(
         "showDupeCount": "true",
         "output": "json",
         "collapse": collapse,
-        "filter": filters,
+        "filter": ignore_mimetype_case(filters),
     }
     kwargs = {}
     if pattern is not None:
         # Wildcard queries can match a lot of snapshots, so fetch them in pages.
-        params["filter"] = ["statuscode:200"] + list(filters or [])
+        params["filter"] = ["statuscode:200"] + (params["filter"] or [])
         params["limit"] = CDX_PAGE_SIZE
         params["showResumeKey"] = "true"
         kwargs["timeout"] = CDX_TIMEOUT

@@ -36,7 +36,7 @@ def parse_args():
     parser.add_argument(
         "--wildcard",
         action="store_true",
-        help="Treat the URL as a wildcard pattern, and download the archived snapshots whose URLs match it. '*' matches within a path segment, '**' matches across segments, '[abc]' matches any listed character, and '[!abc]' any other. As in a URL, '?' starts the query string: 'example.com/**/*.pdf' matches PDFs with any query string or none, 'example.com/view.php?id=*' matches only URLs whose query string starts with 'id=', and a trailing '?' matches only URLs without one. Matching ignores case, the scheme, default ports, and a leading 'www.'. The host can't contain wildcards, except a leading '*.', which matches the host itself and all its subdomains. Only snapshots that the CDX API lists with a 200 status are included. If the URL contains no '*', '[', or '?', it is treated as an ordinary URL, without that status filter. Quote the URL so that your shell doesn't expand it. Caution: URL paths are usually case-sensitive, but MacOS and Windows filesystems usually aren't, so URLs that differ only in capitalization can collide. If the target directory is case-insensitive, waybackpack warns you and, within a single run, skips colliding files rather than overwriting them. See the README for more caveats.",
+        help="Treat the URL as a wildcard pattern, and download the archived snapshots whose URLs match it. '*' matches within a path segment, '**' matches across segments, '[abc]' matches any listed character, and '[!abc]' any other. As in a URL, '?' starts the query string: 'example.com/**/*.pdf' matches PDFs with any query string or none, 'example.com/view.php?id=*' matches only URLs whose query string starts with 'id=', and a trailing '?' matches only URLs without one. Matching ignores case, the scheme, default ports, and a leading 'www.'. The host can't contain wildcards, except a leading '*.', which matches the host itself and all its subdomains. Only snapshots that the CDX API lists with a 200 status are included, which leaves out revisits of unchanged pages. If the URL contains no '*', '[', or '?', it is treated as an ordinary URL, without that status filter. Quote the URL so that your shell doesn't expand it. Caution: URL paths are usually case-sensitive, but MacOS and Windows filesystems usually aren't, so URLs that differ only in capitalization can collide. If the target directory is case-insensitive, waybackpack warns you and, within a single run, skips colliding files rather than overwriting them. See the README for more caveats.",
     )
 
     parser.add_argument(
@@ -89,7 +89,7 @@ def parse_args():
 
     parser.add_argument(
         "--filter",
-        help="An archive.org `filter` parameter. E.g., --filter mimetype:application/pdf keeps only snapshots that the archive recorded with that MIME type. Can be repeated; snapshots must match every filter. With --wildcard, statuscode:200 is always added. See here: https://github.com/internetarchive/wayback/blob/master/wayback-cdx-server/README.md#filtering",
+        help="An archive.org `filter` parameter. E.g., --filter mimetype:application/pdf keeps only snapshots that the archive recorded with that MIME type (ignoring case, unlike other fields). Can be repeated; snapshots must match every filter. With --wildcard, statuscode:200 is always added. See here: https://github.com/internetarchive/wayback/blob/master/wayback-cdx-server/README.md#filtering",
         action="append",
     )
 
