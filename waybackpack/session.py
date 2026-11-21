@@ -42,6 +42,7 @@ class Session(object):
         except (
             requests.exceptions.ConnectionError,
             requests.exceptions.ConnectTimeout,
+            requests.exceptions.ReadTimeout,
         ):
             logger.info("Connection error")
             return False, None

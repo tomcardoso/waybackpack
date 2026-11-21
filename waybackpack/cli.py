@@ -7,6 +7,7 @@ from .pack import Pack
 from .session import Session
 from .settings import DEFAULT_ROOT, DEFAULT_USER_AGENT
 from .version import __version__
+from .wildcard import WildcardPattern
 
 
 def parse_args():
@@ -30,6 +31,12 @@ def parse_args():
         "--list",
         action="store_true",
         help="Instead of downloading the files, only print the list of snapshots.",
+    )
+
+    parser.add_argument(
+        "--wildcard",
+        action="store_true",
+        help="Treat the URL as a wildcard pattern, and download the archived snapshots whose URLs match it. '*' matches within a path segment, '**' matches across segments, '[abc]' matches any listed character, and '[!abc]' any other. As in a URL, '?' starts the query string: 'example.com/**/*.pdf' matches PDFs with any query string or none, 'example.com/view.php?id=*' matches only URLs whose query string starts with 'id=', and a trailing '?' matches only URLs without one. Matching ignores case, the scheme, default ports, and a leading 'www.'. The host can't contain wildcards, except a leading '*.', which matches the host itself and all its subdomains. Snapshots that the CDX API lists with a 3xx, 4xx, or 5xx status (redirects and errors) are skipped; revisits of unchanged pages are kept. If the URL contains no '*', '[', or '?', it is treated as an ordinary URL, without that status filter. Quote the URL so that your shell doesn't expand it. Caution: URL paths are usually case-sensitive, but MacOS and Windows filesystems usually aren't, so URLs that differ only in capitalization can collide. If the target directory is case-insensitive, waybackpack warns you and, within a single run, skips colliding files rather than overwriting them. See the README for more caveats.",
     )
 
     parser.add_argument(
@@ -82,7 +89,7 @@ def parse_args():
 
     parser.add_argument(
         "--filter",
-        help="An archive.org `filter` parameter. E.g., --filter mimetype:application/pdf keeps only snapshots that the archive recorded with that MIME type (ignoring case, unlike other fields). Can be repeated; snapshots must match every filter. See here: https://github.com/internetarchive/wayback/blob/master/wayback-cdx-server/README.md#filtering",
+        help="An archive.org `filter` parameter. E.g., --filter mimetype:application/pdf keeps only snapshots that the archive recorded with that MIME type (ignoring case, unlike other fields). Can be repeated; snapshots must match every filter. With --wildcard, !statuscode:[345].. is always added. See here: https://github.com/internetarchive/wayback/blob/master/wayback-cdx-server/README.md#filtering",
         action="append",
     )
 
@@ -116,7 +123,10 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--delay", type=int, default=0, help="Sleep X seconds between each fetch."
+        "--delay",
+        type=int,
+        default=0,
+        help="Sleep X seconds between each fetch, including between pages of --wildcard search results.",
     )
 
     parser.add_argument(
@@ -127,6 +137,11 @@ def parse_args():
     )
 
     args = parser.parse_args()
+    if args.wildcard:
+        try:
+            WildcardPattern(args.url)
+        except ValueError as e:
+            parser.error(str(e))
     return args
 
 
@@ -152,12 +167,12 @@ def main():
         to_date=args.to_date,
         uniques_only=args.uniques_only,
         collapse=args.collapse,
+        wildcard=args.wildcard,
+        delay=args.delay,
         filters=args.filter,
     )
 
-    timestamps = [snap["timestamp"] for snap in snapshots]
-
-    pack = Pack(args.url, timestamps=timestamps, session=session)
+    pack = Pack(args.url, snapshots=snapshots, session=session, wildcard=args.wildcard)
 
     if args.dir:
         pack.download_to(

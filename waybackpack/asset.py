@@ -47,13 +47,18 @@ class Asset(object):
             flag=flag,
         )
 
-    def fetch(self, session=None, raw=False, root=DEFAULT_ROOT):
+    def fetch(self, session=None, raw=False, root=DEFAULT_ROOT, skip_redirects=False):
 
         session = session or Session()
         url = self.get_archive_url(raw)
         res = session.get(url)
 
         if res is None:
+            return None
+
+        # E.g., a revisit of a capture that was itself a redirect.
+        if skip_redirects and 300 <= res.status_code < 400:
+            logger.info("Skipping HTTP {0} redirect.".format(res.status_code))
             return None
 
         content = res.content
@@ -74,8 +79,9 @@ class Asset(object):
                 logger.info(log_msg.format(code, loc))
                 if session.follow_redirects:
                     content = session.get(loc).content
-                else:
-                    pass
+                elif skip_redirects:
+                    logger.info("Skipping redirect.")
+                    return None
 
             if re.search(REMOVAL_PATTERNS[0], content) is not None:
                 for pat in REMOVAL_PATTERNS:
