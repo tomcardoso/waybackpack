@@ -46,9 +46,10 @@ pip install waybackpack
 usage: waybackpack [-h] [--version] (-d DIR | --list) [--raw] [--root ROOT]
                    [--from-date FROM_DATE] [--to-date TO_DATE]
                    [--user-agent USER_AGENT] [--follow-redirects]
-                   [--uniques-only] [--collapse COLLAPSE] [--ignore-errors]
-                   [--max-retries MAX_RETRIES] [--no-clobber] [--quiet]
-                   [--progress] [--delay DELAY] [--delay-retry DELAY_RETRY]
+                   [--uniques-only] [--collapse COLLAPSE] [--filter FILTER]
+                   [--ignore-errors] [--max-retries MAX_RETRIES]
+                   [--no-clobber] [--quiet] [--progress] [--delay DELAY]
+                   [--delay-retry DELAY_RETRY]
                    url
 
 positional arguments:
@@ -87,6 +88,13 @@ options:
                         month. See here: https://github.com/internetarchive/wa
                         yback/blob/master/wayback-cdx-
                         server/README.md#collapsing
+  --filter FILTER       An archive.org `filter` parameter. E.g., --filter
+                        mimetype:application/pdf keeps only snapshots that the
+                        archive recorded with that MIME type (ignoring case,
+                        unlike other fields). Can be repeated; snapshots must
+                        match every filter. See here: https://github.com/inter
+                        netarchive/wayback/blob/master/wayback-cdx-
+                        server/README.md#filtering
   --ignore-errors       Don't crash on non-HTTP errors e.g., the requests
                         library's ChunkedEncodingError. Instead, log error and
                         continue. See here:

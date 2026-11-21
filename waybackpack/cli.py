@@ -81,6 +81,12 @@ def parse_args():
     )
 
     parser.add_argument(
+        "--filter",
+        help="An archive.org `filter` parameter. E.g., --filter mimetype:application/pdf keeps only snapshots that the archive recorded with that MIME type (ignoring case, unlike other fields). Can be repeated; snapshots must match every filter. See here: https://github.com/internetarchive/wayback/blob/master/wayback-cdx-server/README.md#filtering",
+        action="append",
+    )
+
+    parser.add_argument(
         "--ignore-errors",
         help="Don't crash on non-HTTP errors e.g., the requests library's ChunkedEncodingError. Instead, log error and continue. See here: https://github.com/jsvine/waybackpack/issues/19",
         action="store_true",
@@ -146,6 +152,7 @@ def main():
         to_date=args.to_date,
         uniques_only=args.uniques_only,
         collapse=args.collapse,
+        filters=args.filter,
     )
 
     timestamps = [snap["timestamp"] for snap in snapshots]

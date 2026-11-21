@@ -1,4 +1,5 @@
 import logging
+import re
 
 from .session import Session
 
@@ -7,12 +8,29 @@ logger = logging.getLogger(__name__)
 SEARCH_URL = "https://web.archive.org/cdx/search/cdx"
 
 
+MIMETYPE_FILTER = re.compile(r"^(!?mimetype:)(?!\(\?i\))")
+
+
+def ignore_mimetype_case(filters):
+    # The CDX API matches filters case-sensitively, but MIME types are
+    # case-insensitive, so add the (?i) flag to mimetype filters.
+    if filters is None:
+        return None
+    return [MIMETYPE_FILTER.sub(r"\1(?i)", f) for f in filters]
+
+
 class WaybackpackException(Exception):
     pass
 
 
 def search(
-    url, from_date=None, to_date=None, uniques_only=False, collapse=None, session=None
+    url,
+    from_date=None,
+    to_date=None,
+    uniques_only=False,
+    collapse=None,
+    session=None,
+    filters=None,
 ):
 
     session = session or Session()
@@ -25,6 +43,7 @@ def search(
             "showDupeCount": "true",
             "output": "json",
             "collapse": collapse,
+            "filter": ignore_mimetype_case(filters),
         },
     )
     if res is None:
